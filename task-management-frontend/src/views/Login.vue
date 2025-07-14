@@ -83,7 +83,7 @@ export default {
         
         if (result.success) {
           // this.toast.success('Login successful!')
-          this.$router.push('/')
+          this.$router.push('/dashboard')
         } else {
           // this.toast.error(result.error || 'Login failed')
           console.error('Login failed:', result.error)

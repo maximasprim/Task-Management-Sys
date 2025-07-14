@@ -16,7 +16,7 @@ const routes = [
     meta: { requiresGuest: true }
   },
   {
-    path: '/',
+    path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/Dashboard.vue'),
     meta: { requiresAuth: true }
@@ -52,9 +52,9 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
   } else if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    next('/')
+    next('/dashboard')
   } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next('/')
+    next('/dashboard')
   } else {
     next()
   }

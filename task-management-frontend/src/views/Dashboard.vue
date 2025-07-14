@@ -15,8 +15,8 @@
       <nav class="sidebar-nav">
         <a 
           href="#" 
-          @click.prevent="navigateTo('/')" 
-          :class="['nav-item', { active: currentRouteName === 'Dashboard' }]"
+          @click.prevent="setActiveView('dashboard')" 
+          :class="['nav-item', { active: activeView === 'dashboard' }]"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
@@ -25,8 +25,8 @@
         </a>
         <a 
           href="#" 
-          @click.prevent="navigateTo('/tasks')" 
-          :class="['nav-item', { active: currentRouteName === 'Tasks' }]"
+          @click.prevent="setActiveView('tasks')" 
+          :class="['nav-item', { active: activeView === 'tasks' }]"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
@@ -36,8 +36,8 @@
         <a 
           v-if="authStore.isAdmin" 
           href="#" 
-          @click.prevent="navigateTo('/users')" 
-          :class="['nav-item', { active: currentRouteName === 'Users' }]"
+          @click.prevent="setActiveView('users')" 
+          :class="['nav-item', { active: activeView === 'users' }]"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -73,12 +73,8 @@
       <header class="header">
         <div class="header-content">
           <div class="header-left">
-            <h1 class="page-title">{{ currentRouteName }}</h1>
-            <p class="page-subtitle">
-              <span v-if="currentRouteName === 'Dashboard'">Overview of your tasks and progress</span>
-              <span v-else-if="currentRouteName === 'Users'">Manage system users</span>
-              <span v-else-if="currentRouteName === 'Tasks'">Manage all tasks</span>
-            </p>
+            <h1 class="page-title">{{ getPageTitle }}</h1>
+            <p class="page-subtitle">{{ getPageSubtitle }}</p>
           </div>
           <div class="header-right">
             <div class="search-bar">
@@ -86,10 +82,14 @@
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.35-4.35"/>
               </svg>
-              <input type="text" placeholder="Search tasks..." v-model="searchQuery" />
+              <input 
+                type="text" 
+                :placeholder="getSearchPlaceholder"
+                v-model="searchQuery" 
+              />
             </div>
             <button 
-              v-if="authStore.isAdmin && currentRouteName === 'Dashboard'" 
+              v-if="authStore.isAdmin && activeView === 'dashboard'" 
               @click="showTaskForm = true"
               class="btn btn-primary"
             >
@@ -99,8 +99,8 @@
               Create Task
             </button>
             <button
-              v-if="authStore.isAdmin && currentRouteName === 'Users'"
-              @click="navigateTo('/users/add')" 
+              v-if="authStore.isAdmin && activeView === 'users'"
+              @click="showUserForm = true" 
               class="btn btn-primary"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -108,13 +108,23 @@
               </svg>
               Add User
             </button>
+            <button
+              v-if="activeView === 'tasks'"
+              @click="showTaskForm = true"
+              class="btn btn-primary"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              Create Task
+            </button>
           </div>
         </div>
       </header>
 
-      <main class="dashboard-main">
-        
-        <div v-if="currentRouteName === 'Dashboard'">
+      <main class="main-wrapper">
+        <!-- Dashboard View -->
+        <div v-if="activeView === 'dashboard'" class="dashboard-view">
           <div class="stats-grid">
             <div class="stat-card pending">
               <div class="stat-icon">
@@ -245,22 +255,82 @@
           </div>
         </div>
 
-        <div v-else-if="currentRouteName === 'Users' && authStore.isAdmin">
-          <UserList 
-            :users="usersStore.allUsers" 
-            @add-user="navigateTo('/users/add')" 
-            @edit-user="navigateTo('/users/edit/' + $event.id)"
-            @delete-user="usersStore.deleteUser($event)"
-          />
-        </div>
-        
-        <div v-else-if="currentRouteName === 'Tasks'">
-          <h2>Tasks List (Coming Soon)</h2>
+        <!-- Tasks View -->
+        <div v-if="activeView === 'tasks'" class="tasks-view">
+          <div class="content-section">
+            <div class="section-header">
+              <h2>All Tasks</h2>
+              <p>Complete task management and overview</p>
+            </div>
+            
+            <!-- Task Statistics -->
+            <div class="task-stats-mini">
+              <div class="mini-stat">
+                <div class="mini-stat-number">{{ allTasks.length }}</div>
+                <div class="mini-stat-label">Total Tasks</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mini-stat-number">{{ filteredTasks.pending.length }}</div>
+                <div class="mini-stat-label">Pending</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mini-stat-number">{{ filteredTasks.inProgress.length }}</div>
+                <div class="mini-stat-label">In Progress</div>
+              </div>
+              <div class="mini-stat">
+                <div class="mini-stat-number">{{ filteredTasks.completed.length }}</div>
+                <div class="mini-stat-label">Completed</div>
+              </div>
+            </div>
+
+            <!-- Task List -->
+            <div class="task-list-view">
+              <div class="task-list-header">
+                <div class="task-filters">
+                  <button 
+                    v-for="status in taskStatuses" 
+                    :key="status.value"
+                    @click="selectedStatus = status.value"
+                    :class="['filter-btn', { active: selectedStatus === status.value }]"
+                  >
+                    <div :class="['status-dot', status.value]"></div>
+                    {{ status.label }}
+                  </button>
+                </div>
+              </div>
+              
+              <div class="task-grid">
+                <TaskCard 
+                  v-for="task in filteredTasksByStatus" 
+                  :key="task.id" 
+                  :task="task"
+                  @edit="editTask"
+                  @delete="deleteTask"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
+        <!-- Users View -->
+        <div v-if="activeView === 'users' && authStore.isAdmin" class="users-view">
+          <div class="content-section">
+            <div class="section-header">
+              <h2>User Management</h2>
+              <p>Manage system users and their permissions</p>
+            </div>
+            <UserList 
+              :users="filteredUsers" 
+              @add-user="showUserForm = true" 
+              @edit-user="editUser"
+              @delete-user="deleteUser"
+            />
+          </div>
+        </div>
       </main>
     </div>
 
+    <!-- Task Form Modal -->
     <Transition name="modal">
       <div v-if="showTaskForm" class="modal-overlay" @click="closeTaskForm">
         <div class="modal-content" @click.stop>
@@ -282,6 +352,29 @@
         </div>
       </div>
     </Transition>
+
+    <!-- User Form Modal -->
+    <Transition name="modal">
+      <div v-if="showUserForm" class="modal-overlay" @click="closeUserForm">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>{{ selectedUser ? 'Edit User' : 'Add New User' }}</h3>
+            <button class="modal-close" @click="closeUserForm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <UserForm 
+              :user="selectedUser"
+              @close="closeUserForm"
+              @submit="handleUserSubmit"
+            />
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -289,50 +382,107 @@
 import { useAuthStore } from '@/store/modules/auth'
 import { useTasksStore } from '@/store/modules/tasks'
 import { useUsersStore } from '@/store/modules/users' 
-import { useRouter, useRoute } from 'vue-router'
 import { computed, ref, onMounted, watch } from 'vue'
 import TaskCard from '@/components/Task/TaskCard.vue'
 import TaskForm from '@/components/Task/TaskForm.vue'
-import UserList from '@/components/User/UserList.vue' 
+import UserList from '@/components/User/UserList.vue'
+import UserForm from '@/components/User/UserForm.vue'
+import { useRouter } from 'vue-router'
 
 export default {
   name: 'Dashboard',
   components: {
     TaskCard,
     TaskForm,
-    UserList
+    UserList,
+    UserForm
   },
   setup() {
     const authStore = useAuthStore()
     const tasksStore = useTasksStore()
     const usersStore = useUsersStore()
     const router = useRouter()
-    const route = useRoute()
 
+    // State for active view
+    const activeView = ref('dashboard')
+    
     // State for task management and search
     const showTaskForm = ref(false)
     const selectedTask = ref(null)
     const searchQuery = ref('')
     
+    // State for user management
+    const showUserForm = ref(false)
+    const selectedUser = ref(null)
+    
+    // State for task filtering
+    const selectedStatus = ref('all')
+    
+    // Task statuses for filtering
+    const taskStatuses = [
+      { value: 'all', label: 'All Tasks' },
+      { value: 'pending', label: 'Pending' },
+      { value: 'in-progress', label: 'In Progress' },
+      { value: 'completed', label: 'Completed' }
+    ]
+    
     // --- Dynamic User Profile ---
     const user = computed(() => authStore.user || {})
 
     const userInitials = computed(() => {
-      // Assuming authStore.user.name is available
       return user.value.name ? user.value.name.charAt(0).toUpperCase() : 'U'
     })
 
     const userName = computed(() => user.value.name || 'Guest')
     const userRole = computed(() => authStore.isAdmin ? 'Admin' : 'User')
 
-    // --- Navigation and Routing ---
-    const currentRouteName = computed(() => route.name || 'Dashboard')
-
-    const navigateTo = (routePath) => {
-      // This ensures that when Tasks or Users is selected, the content loads 
-      // within the main layout and not as a separate component/page.
-      router.push(routePath)
+    // --- Navigation Methods ---
+    const setActiveView = (view) => {
+      activeView.value = view
+      // Clear search when switching views
+      searchQuery.value = ''
+      selectedStatus.value = 'all'
     }
+
+    // --- Dynamic Page Content ---
+    const getPageTitle = computed(() => {
+      switch (activeView.value) {
+        case 'dashboard':
+          return 'Dashboard'
+        case 'tasks':
+          return 'Tasks'
+        case 'users':
+          return 'Users'
+        default:
+          return 'Dashboard'
+      }
+    })
+
+    const getPageSubtitle = computed(() => {
+      switch (activeView.value) {
+        case 'dashboard':
+          return 'Overview of your tasks and progress'
+        case 'tasks':
+          return 'Manage all tasks and their status'
+        case 'users':
+          return 'Manage system users and permissions'
+        default:
+          return 'Overview of your tasks and progress'
+      }
+    })
+
+    const getSearchPlaceholder = computed(() => {
+      switch (activeView.value) {
+        case 'dashboard':
+          return 'Search tasks...'
+        case 'tasks':
+          return 'Search tasks...'
+        case 'users':
+          return 'Search users...'
+        default:
+          return 'Search...'
+      }
+    })
 
     // --- Search Implementation ---
     const filteredTasks = computed(() => {
@@ -343,7 +493,6 @@ export default {
           return list;
         }
         return list.filter(task => {
-          // Filter tasks based on title or description
           const titleMatch = task.title?.toLowerCase().includes(query);
           const descriptionMatch = task.description?.toLowerCase().includes(query);
           return titleMatch || descriptionMatch;
@@ -357,20 +506,58 @@ export default {
       };
     });
 
+    // All tasks for the tasks view
+    const allTasks = computed(() => [
+      ...tasksStore.pendingTasks,
+      ...tasksStore.inProgressTasks,
+      ...tasksStore.completedTasks
+    ])
+
+    // Filtered tasks by status for tasks view
+    const filteredTasksByStatus = computed(() => {
+      let tasks = allTasks.value
+      
+      if (selectedStatus.value !== 'all') {
+        tasks = tasks.filter(task => task.status === selectedStatus.value)
+      }
+      
+      const query = searchQuery.value.toLowerCase().trim()
+      if (query) {
+        tasks = tasks.filter(task => {
+          const titleMatch = task.title?.toLowerCase().includes(query)
+          const descriptionMatch = task.description?.toLowerCase().includes(query)
+          return titleMatch || descriptionMatch
+        })
+      }
+      
+      return tasks
+    })
+
+    // Filtered users
+    const filteredUsers = computed(() => {
+      const query = searchQuery.value.toLowerCase().trim()
+      if (!query) {
+        return usersStore.allUsers
+      }
+      return usersStore.allUsers.filter(user => {
+        const nameMatch = user.name?.toLowerCase().includes(query)
+        const emailMatch = user.email?.toLowerCase().includes(query)
+        return nameMatch || emailMatch
+      })
+    })
+
     // --- Data Fetching ---
     onMounted(async () => {
-      // Fetch initial tasks data
       await tasksStore.fetchTasks()
       
-      // Fetch users data if the user is an admin
       if (authStore.isAdmin) {
-          await usersStore.fetchUsers() 
+        await usersStore.fetchUsers() 
       }
     })
     
-    // Watch the route and fetch users data if the user navigates to the Users view
-    watch(() => route.name, (newName) => {
-      if (newName === 'Users' && authStore.isAdmin && !usersStore.allUsers.length) {
+    // Watch the active view and fetch data accordingly
+    watch(activeView, (newView) => {
+      if (newView === 'users' && authStore.isAdmin && !usersStore.allUsers.length) {
         usersStore.fetchUsers()
       }
     })
@@ -405,24 +592,67 @@ export default {
       
       if (result.success) {
         closeTaskForm()
-        // Optionally show success notification
       } else {
         console.error('Task submit error:', result.error)
       }
     }
 
+    // --- User Management Methods ---
+    const editUser = (user) => {
+      selectedUser.value = user
+      showUserForm.value = true
+    }
+
+    const deleteUser = async (userId) => {
+      if (confirm('Are you sure you want to delete this user?')) {
+        const result = await usersStore.deleteUser(userId)
+        if (!result.success) {
+          console.error('Delete user error:', result.error)
+        }
+      }
+    }
+
+    const closeUserForm = () => {
+      showUserForm.value = false
+      selectedUser.value = null
+    }
+
+    const handleUserSubmit = async (userData) => {
+      let result
+      if (selectedUser.value) {
+        result = await usersStore.updateUser(selectedUser.value.id, userData)
+      } else {
+        result = await usersStore.createUser(userData)
+      }
+      
+      if (result.success) {
+        closeUserForm()
+      } else {
+        console.error('User submit error:', result.error)
+      }
+    }
+
     // --- Logout ---
     const logout = async () => {
-      // Assuming authStore has a logout method that clears session/token
-      await authStore.logout() 
-      // Redirect to login or home page
-      router.push('/login') 
+      try {
+        // Assuming authStore has a logout method that clears session/token
+        await authStore.logout()
+        // Redirect to login or home page
+        localStorage.removeItem('token')
+        router.push('/login')
+      } catch (error) {
+        console.error('Logout error:', error)
+        // Even if logout fails, redirect to login
+        router.push('/login')
+      }
     }
 
     return {
       authStore,
       tasksStore,
       usersStore,
+      activeView,
+      setActiveView,
       userInitials,
       userName,
       userRole,
@@ -433,17 +663,28 @@ export default {
       deleteTask,
       closeTaskForm,
       handleTaskSubmit,
-      navigateTo,
-      currentRouteName,
+      showUserForm,
+      selectedUser,
+      editUser,
+      deleteUser,
+      closeUserForm,
+      handleUserSubmit,
       searchQuery,
-      filteredTasks // Expose filteredTasks for the template
+      filteredTasks,
+      filteredUsers,
+      allTasks,
+      filteredTasksByStatus,
+      selectedStatus,
+      taskStatuses,
+      getPageTitle,
+      getPageSubtitle,
+      getSearchPlaceholder
     }
   },
 }
 </script>
 
 <style scoped>
-/* (The CSS provided in the prompt remains here) */
 /* Layout */
 .app-layout {
   display: flex;
@@ -469,6 +710,7 @@ export default {
 .sidebar-header {
   padding: 24px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .logo {
@@ -496,6 +738,7 @@ export default {
 .sidebar-nav {
   flex: 1;
   padding: 20px 0;
+  overflow-y: auto;
 }
 
 .nav-item {
@@ -523,6 +766,7 @@ export default {
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .user-profile {
@@ -584,6 +828,7 @@ export default {
   margin-left: 260px;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
 }
 
 /* Header */
@@ -594,6 +839,7 @@ export default {
   position: sticky;
   top: 0;
   z-index: 50;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -645,18 +891,49 @@ export default {
 
 .search-bar input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* Dashboard Main */
-.dashboard-main {
+/* Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Main Wrapper */
+.main-wrapper {
   flex: 1;
   padding: 32px;
   overflow-y: auto;
 }
 
-/* Statistics Grid */
+/* Dashboard View */
+.dashboard-view {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Stats Grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -668,39 +945,15 @@ export default {
   background: white;
   padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   gap: 16px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.2s;
+  transition: transform 0.2s;
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-}
-
-.stat-card.pending::before {
-  background: #f59e0b;
-}
-
-.stat-card.in-progress::before {
-  background: #3b82f6;
-}
-
-.stat-card.completed::before {
-  background: #10b981;
 }
 
 .stat-icon {
@@ -710,21 +963,22 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .stat-card.pending .stat-icon {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
 }
 
 .stat-card.in-progress .stat-icon {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
 }
 
 .stat-card.completed .stat-icon {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
 }
 
 .stat-content {
@@ -742,7 +996,6 @@ export default {
   margin: 0;
   color: #64748b;
   font-size: 14px;
-  font-weight: 500;
 }
 
 .stat-trend {
@@ -755,7 +1008,7 @@ export default {
   color: #10b981;
   background: rgba(16, 185, 129, 0.1);
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 4px;
 }
 
 .trend-indicator.positive {
@@ -766,39 +1019,42 @@ export default {
 /* Task Board */
 .task-board {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+  margin-top: 32px;
 }
 
 .task-column {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-height: 500px;
 }
 
 .column-header {
-  padding: 20px;
-  border-bottom: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .column-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .column-badge {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
 .column-badge.pending {
-  background: #f59e0b;
+  background: #fbbf24;
 }
 
 .column-badge.in-progress {
@@ -822,20 +1078,16 @@ export default {
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .column-action-btn {
-  width: 32px;
-  height: 32px;
+  background: none;
   border: none;
-  background: transparent;
-  color: #64748b;
-  border-radius: 6px;
+  padding: 4px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: #64748b;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -845,36 +1097,139 @@ export default {
 }
 
 .task-list {
-  padding: 20px;
-  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* Buttons */
-.btn {
-  display: inline-flex;
+/* Tasks View */
+.tasks-view {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.content-section {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.section-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.section-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 16px;
+}
+
+.task-stats-mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.mini-stat {
+  text-align: center;
+}
+
+.mini-stat-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 4px;
+}
+
+.mini-stat-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.task-list-view {
+  margin-top: 32px;
+}
+
+.task-list-header {
+  margin-bottom: 24px;
+}
+
+.task-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
-  border: none;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
-  font-size: 14px;
   transition: all 0.2s;
-  text-decoration: none;
+  font-size: 14px;
+  color: #64748b;
 }
 
-.btn-primary {
-  background: #3b82f6;
+.filter-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.filter-btn.active {
+  background: #667eea;
+  border-color: #667eea;
   color: white;
 }
 
-.btn-primary:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-/* Modal */
+.status-dot.pending {
+  background: #fbbf24;
+}
+
+.status-dot.in-progress {
+  background: #3b82f6;
+}
+
+.status-dot.completed {
+  background: #10b981;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+/* Users View */
+.users-view {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -883,27 +1238,29 @@ export default {
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(4px);
+  padding: 20px;
 }
 
 .modal-content {
   background: white;
   border-radius: 12px;
-  max-width: 600px;
-  width: 90%;
+  width: 100%;
+  max-width: 500px;
   max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
 .modal-header {
-  padding: 24px 24px 0 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 24px 24px 0 24px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 24px;
 }
 
 .modal-header h3 {
@@ -914,16 +1271,12 @@ export default {
 }
 
 .modal-close {
-  width: 32px;
-  height: 32px;
+  background: none;
   border: none;
-  background: transparent;
-  color: #64748b;
-  border-radius: 6px;
+  padding: 8px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: #64748b;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 
@@ -933,57 +1286,159 @@ export default {
 }
 
 .modal-body {
-  padding: 24px;
-  overflow-y: auto;
+  padding: 0 24px 24px 24px;
 }
 
 /* Modal Transitions */
 .modal-enter-active, .modal-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease;
 }
 
 .modal-enter-from, .modal-leave-to {
   opacity: 0;
-  transform: scale(0.9);
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content {
+  transition: transform 0.3s ease;
+}
+
+.modal-enter-from .modal-content,
+.modal-leave-to .modal-content {
+  transform: scale(0.95);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .sidebar {
-    width: 100%;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
   }
-  
+
   .main-content {
     margin-left: 0;
   }
-  
+
   .header-content {
     flex-direction: column;
-    height: auto;
-    padding: 16px 0;
     gap: 16px;
+    height: auto;
+    padding: 20px 0;
   }
-  
-  .search-bar {
-    order: 1;
-  }
-  
+
   .search-bar input {
     width: 200px;
   }
-  
-  .dashboard-main {
-    padding: 16px;
-  }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
+
   .task-board {
     grid-template-columns: 1fr;
   }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-filters {
+    justify-content: center;
+  }
+
+  .main-wrapper {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-right {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-bar input {
+    width: 100%;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-content {
+    margin: 10px;
+    max-width: calc(100% - 20px);
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Focus Styles */
+.nav-item:focus,
+.btn:focus,
+.filter-btn:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Animation for smooth transitions */
+.task-column,
+.stat-card,
+.content-section {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #667eea;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 </style>
