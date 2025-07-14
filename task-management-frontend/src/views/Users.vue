@@ -20,7 +20,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in users" :key="user.id">
+          <tr v-for="user in usersStore.users" :key="user.id">
             <td>{{ user.name }}</td>
             <td>{{ user.email }}</td>
             <td>
@@ -62,7 +62,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex'
+import { useUsersStore } from '@/store/modules/users'
 import UserForm from '@/components/User/UserForm.vue'
 
 export default {
@@ -70,21 +70,23 @@ export default {
   components: {
     UserForm
   },
+  setup() {
+    const usersStore = useUsersStore()
+    
+    return { 
+      usersStore
+    }
+  },
   data() {
     return {
       showUserForm: false,
       selectedUser: null
     }
   },
-  computed: {
-    ...mapState('users', ['users'])
-  },
   async created() {
-    await this.fetchUsers()
+    await this.usersStore.fetchUsers()
   },
   methods: {
-    ...mapActions('users', ['fetchUsers', 'createUser', 'updateUser', 'deleteUser']),
-    
     editUser(user) {
       this.selectedUser = user
       this.showUserForm = true
@@ -92,7 +94,7 @@ export default {
     
     async deleteUser(userId) {
       if (confirm('Are you sure you want to delete this user?')) {
-        const result = await this.deleteUser(userId)
+        const result = await this.usersStore.deleteUser(userId)
         if (!result.success) {
           this.$toast.error(result.error)
         }
@@ -108,12 +110,9 @@ export default {
       let result
       
       if (this.selectedUser) {
-        result = await this.updateUser({ 
-          id: this.selectedUser.id, 
-          userData 
-        })
+        result = await this.usersStore.updateUser(this.selectedUser.id, userData)
       } else {
-        result = await this.createUser(userData)
+        result = await this.usersStore.createUser(userData)
       }
       
       if (result.success) {

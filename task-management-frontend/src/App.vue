@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <div v-if="isAuthenticated" class="app-layout">
+    <div v-if="authStore.getIsAuthenticated" class="app-layout">
       <nav class="sidebar">
         <div class="nav-brand">
           <h2>Task Manager</h2>
@@ -16,15 +16,15 @@
               Tasks
             </router-link>
           </li>
-          <li v-if="isAdmin">
+          <li v-if="authStore.isAdmin">
             <router-link to="/users" class="nav-link">
               Users
             </router-link>
           </li>
         </ul>
         <div class="user-info">
-          <p>{{ user.name }}</p>
-          <button @click="logout" class="btn btn-logout">
+          <p>{{ authStore.getUser?.name || 'User' }}</p>
+          <button @click="handleLogout" class="btn btn-logout">
             Logout
           </button>
         </div>
@@ -42,19 +42,30 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { useAuthStore } from '@/store/modules/auth'
 
 export default {
   name: 'App',
-  computed: {
-    ...mapGetters('auth', ['isAuthenticated', 'isAdmin', 'user'])
+  setup() {
+    const authStore = useAuthStore()
+    
+    // Initialize auth on app startup - fetch user if token exists
+    if (authStore.token) {
+      authStore.fetchUser()
+    }
+    
+    return {
+      authStore
+    }
   },
   methods: {
-    ...mapActions('auth', ['logout']),
-    
-    async logout() {
-      await this.logout()
-      this.$router.push('/login')
+    async handleLogout() {
+      try {
+        await this.authStore.performLogout()
+        this.$router.push('/login')
+      } catch (error) {
+        console.error('Logout error:', error)
+      }
     }
   }
 }

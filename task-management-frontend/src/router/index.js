@@ -1,6 +1,6 @@
-// src/router/index.js
+// src/router/index.js - Fixed version
 import { createRouter, createWebHistory } from 'vue-router'
-import store from '@/store'
+import { useAuthStore } from '@/store/modules/auth'
 
 const routes = [
   {
@@ -41,18 +41,19 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  const token = localStorage.getItem('token')
-  const isAuthenticated = store.getters['auth/isAuthenticated']
+  const authStore = useAuthStore()
   
-  if (token && !isAuthenticated) {
-    await store.dispatch('auth/fetchUser')
+  // Wait for auth initialization if not already done
+  if (!authStore.isInitialized) {
+    await authStore.initAuth()
   }
   
-  if (to.meta.requiresAuth && !store.getters['auth/isAuthenticated']) {
+  // Route protection logic
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')
-  } else if (to.meta.requiresGuest && store.getters['auth/isAuthenticated']) {
+  } else if (to.meta.requiresGuest && authStore.isAuthenticated) {
     next('/')
-  } else if (to.meta.requiresAdmin && !store.getters['auth/isAdmin']) {
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next('/')
   } else {
     next()

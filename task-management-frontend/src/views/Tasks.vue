@@ -10,7 +10,7 @@
           <option value="completed">Completed</option>
         </select>
         <button 
-          v-if="isAdmin" 
+          v-if="authStore.isAdmin" 
           @click="showTaskForm = true"
           class="btn btn-primary"
         >
@@ -47,7 +47,8 @@
 </template>
 
 <script>
-import { mapActions, mapGetters, mapState } from 'vuex'
+import { useTasksStore } from '@/store/modules/tasks'
+import { useAuthStore } from '@/store/modules/auth'
 import TaskCard from '@/components/Task/TaskCard.vue'
 import TaskForm from '@/components/Task/TaskForm.vue'
 import { useToast } from 'vue-toastification'
@@ -60,7 +61,14 @@ export default {
   },
   setup() {
     const toast = useToast()
-    return { toast }
+    const tasksStore = useTasksStore()
+    const authStore = useAuthStore()
+    
+    return { 
+      toast,
+      tasksStore,
+      authStore
+    }
   },
   data() {
     return {
@@ -70,20 +78,15 @@ export default {
     }
   },
   computed: {
-    ...mapGetters('auth', ['isAdmin']),
-    ...mapState('tasks', ['tasks']),
-    
     filteredTasks() {
-      if (!this.statusFilter) return this.tasks
-      return this.tasks.filter(task => task.status === this.statusFilter)
+      if (!this.statusFilter) return this.tasksStore.tasks
+      return this.tasksStore.tasks.filter(task => task.status === this.statusFilter)
     }
   },
   async created() {
-    await this.fetchTasks()
+    await this.tasksStore.fetchTasks()
   },
   methods: {
-    ...mapActions('tasks', ['fetchTasks', 'createTask', 'updateTask', 'deleteTask']),
-    
     editTask(task) {
       this.selectedTask = task
       this.showTaskForm = true
@@ -91,7 +94,7 @@ export default {
     
     async deleteTask(taskId) {
       if (confirm('Are you sure you want to delete this task?')) {
-        const result = await this.deleteTask(taskId)
+        const result = await this.tasksStore.deleteTask(taskId)
         if (result.success) {
           this.toast.success('Task deleted successfully!')
         } else {
@@ -109,12 +112,9 @@ export default {
       let result
       
       if (this.selectedTask) {
-        result = await this.updateTask({ 
-          id: this.selectedTask.id, 
-          taskData 
-        })
+        result = await this.tasksStore.updateTask(this.selectedTask.id, taskData)
       } else {
-        result = await this.createTask(taskData)
+        result = await this.tasksStore.createTask(taskData)
       }
       
       if (result.success) {

@@ -41,22 +41,30 @@
       </form>
       
       <div class="login-footer">
-        <p>Don't have an account? Contact your administrator.</p>
+        <p>
+          Don't have an account?
+          <router-link to="/register">Sign Up</router-link>
+        </p>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { mapActions } from 'vuex'
+import { useAuthStore } from '@/store/modules/auth'
 // import { useToast } from 'vue-toastification'
 
 export default {
   name: 'Login',
-  // setup() {
-  //   // const toast = useToast()
-  //   return { toast }
-  // },
+  setup() {
+    const authStore = useAuthStore()
+    // const toast = useToast()
+    
+    return { 
+      authStore
+      // toast 
+    }
+  },
   data() {
     return {
       credentials: {
@@ -67,22 +75,22 @@ export default {
     }
   },
   methods: {
-    ...mapActions('auth', ['login']),
-    
     async handleLogin() {
       this.loading = true
       
       try {
-        const result = await this.login(this.credentials)
+        const result = await this.authStore.login(this.credentials)
         
         if (result.success) {
           // this.toast.success('Login successful!')
           this.$router.push('/')
         } else {
           // this.toast.error(result.error || 'Login failed')
+          console.error('Login failed:', result.error)
         }
       } catch (error) {
         // this.toast.error('An error occurred during login')
+        console.error('Login error:', error)
       } finally {
         this.loading = false
       }

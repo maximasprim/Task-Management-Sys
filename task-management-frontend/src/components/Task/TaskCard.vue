@@ -16,8 +16,8 @@
     
     <div class="task-actions">
       <select 
-        v-if="canUpdateStatus" 
-        v-model="selectedStatus" 
+        v-if="canUpdateStatus"
+        v-model="selectedStatus"
         @change="updateStatus"
         class="status-select"
       >
@@ -27,7 +27,7 @@
       </select>
       
       <button 
-        v-if="canEdit" 
+        v-if="canEdit"
         @click="$emit('edit', task)"
         class="btn btn-edit"
       >
@@ -35,7 +35,7 @@
       </button>
       
       <button 
-        v-if="canDelete" 
+        v-if="canDelete"
         @click="$emit('delete', task.id)"
         class="btn btn-delete"
       >
@@ -46,7 +46,8 @@
 </template>
 
 <script>
-import { mapActions, mapGetters } from 'vuex'
+import { useTasksStore } from '@/store/modules/tasks'
+import { useAuthStore } from '@/store/modules/auth'
 
 export default {
   name: 'TaskCard',
@@ -56,14 +57,21 @@ export default {
       required: true
     }
   },
+  setup() {
+    const tasksStore = useTasksStore()
+    const authStore = useAuthStore()
+    
+    return {
+      tasksStore,
+      authStore
+    }
+  },
   data() {
     return {
       selectedStatus: this.task.status
     }
   },
   computed: {
-    ...mapGetters('auth', ['user', 'isAdmin']),
-    
     statusClass() {
       return `status-${this.task.status.replace('_', '-')}`
     },
@@ -77,25 +85,20 @@ export default {
     },
     
     canUpdateStatus() {
-      return this.task.assigned_to === this.user.id
+      return this.task.assigned_to === this.authStore.user.id
     },
     
     canEdit() {
-      return this.isAdmin
+      return this.authStore.isAdmin
     },
     
     canDelete() {
-      return this.isAdmin
+      return this.authStore.isAdmin
     }
   },
   methods: {
-    ...mapActions('tasks', ['updateTaskStatus']),
-    
     async updateStatus() {
-      const result = await this.updateTaskStatus({
-        id: this.task.id,
-        status: this.selectedStatus
-      })
+      const result = await this.tasksStore.updateTaskStatus(this.task.id, this.selectedStatus)
       
       if (!result.success) {
         this.$toast.error(result.error)

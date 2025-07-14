@@ -1,100 +1,116 @@
-// src/store/modules/tasks.js
+
+// src/stores/tasks.js
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
 import api from '@/services/api'
 
-const state = {
-  tasks: [],
-  loading: false,
-  error: null,
-}
+export const useTasksStore = defineStore('tasks', () => {
+  // State
+  const tasks = ref([])
+  const loading = ref(false)
+  const error = ref(null)
 
-const mutations = {
-  SET_TASKS(state, tasks) {
-    state.tasks = tasks
-  },
-  ADD_TASK(state, task) {
-    state.tasks.push(task)
-  },
-  UPDATE_TASK(state, updatedTask) {
-    const index = state.tasks.findIndex(task => task.id === updatedTask.id)
-    if (index !== -1) {
-      state.tasks.splice(index, 1, updatedTask)
-    }
-  },
-  DELETE_TASK(state, taskId) {
-    state.tasks = state.tasks.filter(task => task.id !== taskId)
-  },
-  SET_LOADING(state, loading) {
-    state.loading = loading
-  },
-  SET_ERROR(state, error) {
-    state.error = error
-  },
-}
+  // Getters
+  const pendingTasks = computed(() => 
+    tasks.value.filter(task => task.status === 'pending')
+  )
+  
+  const inProgressTasks = computed(() => 
+    tasks.value.filter(task => task.status === 'in_progress')
+  )
+  
+  const completedTasks = computed(() => 
+    tasks.value.filter(task => task.status === 'completed')
+  )
 
-const actions = {
-  async fetchTasks({ commit }) {
-    commit('SET_LOADING', true)
+  // Actions
+  const fetchTasks = async () => {
+    loading.value = true
+    error.value = null
     try {
       const response = await api.get('/tasks')
-      commit('SET_TASKS', response.data)
-    } catch (error) {
-      commit('SET_ERROR', error.response?.data?.message || 'Failed to fetch tasks')
+      tasks.value = response.data
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to fetch tasks'
     } finally {
-      commit('SET_LOADING', false)
+      loading.value = false
     }
-  },
+  }
 
-  async createTask({ commit }, taskData) {
+  const createTask = async (taskData) => {
     try {
       const response = await api.post('/tasks', taskData)
-      commit('ADD_TASK', response.data)
+      tasks.value.push(response.data)
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error.response?.data?.message || 'Failed to create task' }
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to create task' 
+      }
     }
-  },
+  }
 
-  async updateTask({ commit }, { id, taskData }) {
+  const updateTask = async (id, taskData) => {
     try {
       const response = await api.put(`/tasks/${id}`, taskData)
-      commit('UPDATE_TASK', response.data)
+      const index = tasks.value.findIndex(task => task.id === id)
+      if (index !== -1) {
+        tasks.value.splice(index, 1, response.data)
+      }
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error.response?.data?.message || 'Failed to update task' }
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to update task' 
+      }
     }
-  },
+  }
 
-  async updateTaskStatus({ commit }, { id, status }) {
+  const updateTaskStatus = async (id, status) => {
     try {
       const response = await api.patch(`/tasks/${id}/status`, { status })
-      commit('UPDATE_TASK', response.data)
+      const index = tasks.value.findIndex(task => task.id === id)
+      if (index !== -1) {
+        tasks.value.splice(index, 1, response.data)
+      }
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error.response?.data?.message || 'Failed to update task status' }
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to update task status' 
+      }
     }
-  },
+  }
 
-  async deleteTask({ commit }, id) {
+  const deleteTask = async (id) => {
     try {
       await api.delete(`/tasks/${id}`)
-      commit('DELETE_TASK', id)
+      tasks.value = tasks.value.filter(task => task.id !== id)
       return { success: true }
-    } catch (error) {
-      return { success: false, error: error.response?.data?.message || 'Failed to delete task' }
+    } catch (err) {
+      return { 
+        success: false, 
+        error: err.response?.data?.message || 'Failed to delete task' 
+      }
     }
-  },
-}
+  }
 
-const getters = {
-  pendingTasks: (state) => state.tasks.filter(task => task.status === 'pending'),
-  inProgressTasks: (state) => state.tasks.filter(task => task.status === 'in_progress'),
-  completedTasks: (state) => state.tasks.filter(task => task.status === 'completed'),
-}
-
-export default {
-  namespaced: true,
-  state,
-  mutations,
-  actions,
-  getters,
-}
+  return {
+    // State
+    tasks,
+    loading,
+    error,
+    
+    // Getters
+    pendingTasks,
+    inProgressTasks,
+    completedTasks,
+    
+    // Actions
+    fetchTasks,
+    createTask,
+    updateTask,
+    updateTaskStatus,
+    deleteTask
+  }
+})

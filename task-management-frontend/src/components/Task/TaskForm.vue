@@ -35,8 +35,8 @@
         >
           <option value="">Select User</option>
           <option 
-            v-for="user in users" 
-            :key="user.id" 
+            v-for="user in usersStore.users"
+            :key="user.id"
             :value="user.id"
           >
             {{ user.name }}
@@ -68,7 +68,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex'
+import { useUsersStore } from '@/store/modules/users'
 
 export default {
   name: 'TaskForm',
@@ -76,6 +76,13 @@ export default {
     task: {
       type: Object,
       default: null
+    }
+  },
+  setup() {
+    const usersStore = useUsersStore()
+    
+    return {
+      usersStore
     }
   },
   data() {
@@ -89,14 +96,12 @@ export default {
     }
   },
   computed: {
-    ...mapState('users', ['users']),
-    
     isEditing() {
       return !!this.task
     }
   },
   async created() {
-    await this.fetchUsers()
+    await this.usersStore.fetchUsers()
     
     if (this.task) {
       this.formData = {
@@ -108,8 +113,6 @@ export default {
     }
   },
   methods: {
-    ...mapActions('users', ['fetchUsers']),
-    
     formatDatetimeLocal(dateString) {
       const date = new Date(dateString)
       return date.toISOString().slice(0, 16)

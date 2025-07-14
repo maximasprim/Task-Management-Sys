@@ -1,12 +1,23 @@
-// src/main.js
+// src/main.js - Updated version
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
-import store from './store'
+import { useAuthStore } from '@/store/modules/auth'
 
 const app = createApp(App)
 
-app.use(store)
-app.use(router)
+// Setup Pinia
+const pinia = createPinia()
+pinia.use(piniaPluginPersistedstate)
+app.use(pinia)
 
-app.mount('#app')
+// Initialize auth store before mounting
+const authStore = useAuthStore()
+
+// Initialize auth and then mount the app
+authStore.initAuth().then(() => {
+  app.use(router)
+  app.mount('#app')
+})
