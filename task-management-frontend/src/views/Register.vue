@@ -60,7 +60,7 @@
       </form>
       
       <p class="auth-footer">
-        Already have an account? <router-link to="/login">Sign In</router-link>
+        Already have an account? <router-link to="/">Sign In</router-link>
       </p>
     </div>
   </div>

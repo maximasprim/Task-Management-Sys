@@ -355,7 +355,7 @@
 
     <!-- User Form Modal -->
     <Transition name="modal">
-      <div v-if="showUserForm" class="modal-overlay" @click="closeUserForm">
+     <div v-if="showUserForm" class="modal-overlay" @click="closeUserForm">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
             <h3>{{ selectedUser ? 'Edit User' : 'Add New User' }}</h3>
@@ -639,11 +639,11 @@ export default {
         await authStore.logout()
         // Redirect to login or home page
         localStorage.removeItem('token')
-        router.push('/login')
+        router.push('/')
       } catch (error) {
         console.error('Logout error:', error)
         // Even if logout fails, redirect to login
-        router.push('/login')
+        router.push('/')
       }
     }
 

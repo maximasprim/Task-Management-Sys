@@ -1,7 +1,7 @@
 <template>
   <div class="user-form">
     <h2>{{ isEditing ? 'Edit User' : 'Create User' }}</h2>
-    
+        
     <form @submit.prevent="handleSubmit">
       <div class="form-group">
         <label for="name">Full Name</label>
@@ -12,9 +12,10 @@
           required
           class="form-control"
           placeholder="Enter full name"
+          :disabled="isLoading"
         />
       </div>
-      
+            
       <div class="form-group">
         <label for="email">Email Address</label>
         <input 
@@ -24,9 +25,10 @@
           required
           class="form-control"
           placeholder="Enter email address"
+          :disabled="isLoading"
         />
       </div>
-      
+            
       <div class="form-group" v-if="!isEditing">
         <label for="password">Password</label>
         <input 
@@ -36,9 +38,10 @@
           required
           class="form-control"
           placeholder="Enter password"
+          :disabled="isLoading"
         />
       </div>
-      
+            
       <div class="form-group">
         <label for="role">Role</label>
         <select 
@@ -46,19 +49,30 @@
           v-model="formData.role"
           required
           class="form-control"
+          :disabled="isLoading"
         >
           <option value="">Select Role</option>
           <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
       </div>
-      
+            
       <div class="form-actions">
-        <button type="button" @click="$emit('close')" class="btn btn-secondary">
+        <button 
+          type="button" 
+          @click="$emit('close')" 
+          class="btn btn-secondary"
+          :disabled="isLoading"
+        >
           Cancel
         </button>
-        <button type="submit" class="btn btn-primary">
-          {{ isEditing ? 'Update' : 'Create' }} User
+        <button 
+          type="submit" 
+          class="btn btn-primary"
+          :disabled="isLoading"
+        >
+          <span v-if="isLoading" class="loading-spinner"></span>
+          {{ isLoading ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update' : 'Create') }} User
         </button>
       </div>
     </form>
@@ -73,6 +87,10 @@ export default {
     user: {
       type: Object,
       default: null
+    },
+    loading: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -88,6 +106,9 @@ export default {
   computed: {
     isEditing() {
       return !!this.user
+    },
+    isLoading() {
+      return this.loading
     }
   },
   created() {
@@ -103,12 +124,12 @@ export default {
   methods: {
     handleSubmit() {
       const submitData = { ...this.formData }
-      
+            
       // Remove password from update if it's empty
       if (this.isEditing && !submitData.password) {
         delete submitData.password
       }
-      
+            
       this.$emit('submit', submitData)
     }
   }
@@ -153,6 +174,12 @@ export default {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
+.form-control:disabled {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
 .form-actions {
   display: flex;
   gap: 12px;
@@ -170,6 +197,14 @@ export default {
   font-weight: 500;
   font-size: 14px;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
@@ -177,7 +212,7 @@ export default {
   color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: #4b5563;
 }
 
@@ -186,7 +221,21 @@ export default {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #2563eb;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

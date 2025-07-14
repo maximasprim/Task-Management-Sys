@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/modules/auth'
 
 const routes = [
   {
-    path: '/login',
+    path: '/',
     name: 'Login',
     component: () => import('@/views/Login.vue'),
     meta: { requiresGuest: true }

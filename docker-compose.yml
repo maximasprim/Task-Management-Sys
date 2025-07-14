@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./task-management-backend
+      dockerfile: Dockerfile
+    container_name: task_management_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./task-management-backend:/var/www/html
+      - ./task-management-backend/storage:/var/www/html/storage
+      - ./task-management-backend/bootstrap/cache:/var/www/html/bootstrap/cache
+    ports:
+      - "8000:8000"
+    networks:
+      - task_management_network
+
+  frontend:
+    build:
+      context: ./task-management-frontend
+      dockerfile: Dockerfile
+    container_name: task_management_frontend
+    restart: unless-stopped
+    volumes:
+      - ./task-management-frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - task_management_network
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+
+networks:
+  task_management_network:
+    driver: bridge
